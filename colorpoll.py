@@ -82,7 +82,7 @@ def main():
                 lastShownGreen = green
                 lastShownBlue = blue
                 currentColorStr = newColorStr
-                os.system("particle call lightshow show " + currentColorStr)
+                os.system("particle call Nitin_dev show " + currentColorStr)
     except HttpError as err:
         print(err)
 
