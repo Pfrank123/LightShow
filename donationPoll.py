@@ -52,6 +52,7 @@ def main():
         lastShownGreen = 0
         lastShownBlue = 0
         
+        lastShownIndex = 1
         while keepgoing:
             time.sleep(1)
             result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
@@ -61,17 +62,39 @@ def main():
                 print('No data found.')
                 return
             
-            # get the last row
-            lastRow = values[-1]
-            tablenumber = lastRow[3]
-            pledgeAmount = int(lastRow[4])
-            if tablenumber == "12":
-                if pledgeAmount >= 100:
-                    os.system("particle call Nitin_dev show FF0000")
-            if tablenumber == "12":
-                if pledgeAmount < 100:
-                    os.system("particle call Nitin_dev show 00FF00")
             
+            
+            while lastShownIndex < len(values):
+                # get the next row
+                activeRow = values[lastShownIndex]
+                tablenumber = activeRow[3]
+                pledgeAmount = int(activeRow[4])
+                #///
+                
+            
+            
+                tableMapping = {
+                    "12" : 'me',
+                    "13" : 'up'
+                }
+                
+                if pledgeAmount >= 100:
+                    #b = 1
+                    
+                    os.system("particle call " + tableMapping[tablenumber] + " show 03fccf")
+                    '''
+                    os.system("particle call " + tableMapping[tablenumber] + " show1 5f0ca8")
+                    time.sleep(0.4)
+                    os.system("particle call " + tableMapping[tablenumber] + " show 5f0ca8")
+                    #b+=1
+                        '''
+                
+                if pledgeAmount < 100:
+                    os.system("particle call " + tableMapping[tablenumber] + " show 00FF00")
+                    
+                
+                lastShownIndex += 1
+
             
             
             
