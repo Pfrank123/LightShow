@@ -13,7 +13,7 @@ FASTLED_USING_NAMESPACE;
 #define IDLE -1
 #define FADE 1
 #define CLIMB 2
-#define SIN 3
+#define BOUNCE 3
 
 CRGB leds[NUM_LEDS];
 
@@ -21,23 +21,31 @@ short currentEffect = IDLE;
 long currentRequestedColor = -1;
 long currentRequestStartTime = -1;
 float currentEffectDuration = -1.0;
+float currentNumBounces = 3.0;
+
+char debugStr[160];
 
 // the LED Strips that we're using seem to address their Green and Blue
 // channels opposite of what FastLED does. Or there's some bug in the 
 // FastLED library port into Particle land. Or Something. This work-around
 // simply swaps the characters in a string which correspond to the Green
 // and Blue channels. 
-void swapGreenAndBlue(String colorCode){
+const char *swapGreenAndBlue(String colorCode){
     char g1 = colorCode[2];
     char g2 = colorCode[3];
     colorCode[2] = colorCode[4];
     colorCode[3] = colorCode[5];
     colorCode[4] = g1;
     colorCode[5] = g2;
+    return colorCode.substring(0,6).c_str(); 
 }
 
 void setDurationFromCommand(String command){
-    float duration = strtof(command.substring(7).c_str(),NULL);
+    // note the arguments to substring are (from,to) not (from,length)
+    // https://docs.particle.io/reference/device-os/api/string-class/substring/
+    float duration = command.substring(7,9).toFloat();
+    sprintf(debugStr, "SET DURATION with '%s', substring '%s' to %f", command.c_str(), command.substring(7,9).c_str(), duration);
+    Particle.publish("set duration", debugStr);
     currentEffectDuration = duration * 1000;
 }
 
@@ -46,8 +54,17 @@ int show(String command) {
     currentEffectDuration = STANDARD_DURATION;
     currentEffect = CLIMB;
     
-    swapGreenAndBlue(command);
-    currentRequestedColor = strtol(command.c_str(), NULL, 16);
+    const char *swapped = swapGreenAndBlue(command);
+    currentRequestedColor = strtol(swapped, NULL, 16);
+    //currentRequestedColor = strtol("FF0000",NULL,16);
+
+    sprintf(debugStr, 
+            "CLIMB start:%i color:%s swapped:%s duration:%f", 
+            currentRequestStartTime, 
+            command.c_str(), 
+            swapped,
+            currentEffectDuration);
+    Particle.publish("effect start", debugStr);
     return currentRequestedColor;
 }
 
@@ -55,21 +72,39 @@ int climbWithDuration(String command) {
     currentEffect = CLIMB;
     currentRequestStartTime = millis();
     
-    swapGreenAndBlue(command);
-    currentRequestedColor = strtol(command.substring(0,6).c_str(), NULL, 16);
+    const char *swapped = swapGreenAndBlue(command);
+    currentRequestedColor = strtol(swapped, NULL, 16);
     
     setDurationFromCommand(command);
+    sprintf(debugStr, 
+            "CLIMB-DURATION start:%i color:%s swapped:'%s' duration:%f", 
+            currentRequestStartTime, 
+            command.substring(0,6).c_str(), 
+            swapped,
+            currentEffectDuration);
+    Particle.publish("effect start", debugStr);
     return currentRequestedColor;
 }
 
-int sinWithDuration(String command) {
-    currentEffect = SIN;
+int bounceWithDuration(String command) {
+    currentEffect = BOUNCE;
     currentRequestStartTime = millis();
     
-    swapGreenAndBlue(command);
-    currentRequestedColor = strtol(command.substring(0,6).c_str(), NULL, 16);
+    const char *swapped = swapGreenAndBlue(command);
+    currentRequestedColor = strtol(swapped, NULL, 16);
     
     setDurationFromCommand(command);
+    currentNumBounces = command.substring(10,12).toFloat();
+
+    sprintf(debugStr, 
+            "BOUNCE start:%i color:%s swapped:%s duration:%f bounces:%f", 
+            currentRequestStartTime, 
+            command.substring(0,6).c_str(), 
+            swapped,
+            currentEffectDuration,
+            currentNumBounces);
+    Particle.publish("effect start", debugStr);
+    
     return currentRequestedColor;
 }
 
@@ -78,7 +113,7 @@ void setup() {
     FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
     Particle.function("show", show);
     Particle.function("climbWithDuration", climbWithDuration);
-    Particle.function("sinWithDuration", sinWithDuration);
+    Particle.function("bounceWithDuration", bounceWithDuration);
     pinMode(DEBUG_PIN, OUTPUT);
 }
 
@@ -108,6 +143,9 @@ void loop()
                 isAnyColorShowing = isAnyColorShowing || leds[dot];
             }
             if(!isAnyColorShowing){
+                char debugStr[160];
+                sprintf(debugStr, "FADE ended:%i", millis());
+                Particle.publish("effect end", debugStr);
                 // we dont' need to keep updating every LED value from now on.
                 currentEffect = IDLE;
             }
@@ -119,6 +157,9 @@ void loop()
             digitalWrite(DEBUG_PIN, HIGH);
             long timeSinceShowStart = millis() - currentRequestStartTime;
             if(timeSinceShowStart > currentEffectDuration){
+                sprintf(debugStr, "CLIMB started:%i ended:%i", currentRequestStartTime, millis());
+                Particle.publish("effect end", debugStr);
+
                 currentRequestedColor = -1;
                 currentRequestStartTime = -1;
                 currentEffectDuration = -1.0;
@@ -138,11 +179,14 @@ void loop()
             delay(5);
             break;
         }
-        case SIN:
+        case BOUNCE:
         {
             digitalWrite(DEBUG_PIN, HIGH);
             long timeSinceShowStart = millis() - currentRequestStartTime;
             if(timeSinceShowStart > currentEffectDuration){
+                sprintf(debugStr, "BOUNCE started:%i ended:%i", currentRequestStartTime, millis());
+                Particle.publish("effect end", debugStr);
+
                 currentRequestedColor = -1;
                 currentRequestStartTime = -1;
                 currentEffectDuration = -1.0;
@@ -152,33 +196,36 @@ void loop()
                 currentEffect = IDLE;
             } else {
                 float effectTimeComplete = timeSinceShowStart / (float) currentEffectDuration;
-                float x = effectTimeComplete * PI * 12;
+                float x = effectTimeComplete * currentNumBounces * PI * 2;
                 
-                // https://www.wolframalpha.com/input?i=50*sin%28x-pi%2F2%29%2B50
+                // https://www.wolframalpha.com/input?i=50*cos%28x+%2B+pi%29%2B50
                 // https://www.math.csi.cuny.edu/~ikofman/Polking/degrad.gif
-                short whichIsLit[16] = { (NUM_LEDS/2) * cos(x+PI*1.000) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.010) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.020) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.030) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.040) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.050) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.060) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.070) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.080) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.090) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.100) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.110) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.120) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.130) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.140) + (NUM_LEDS/2)
-                                      , (NUM_LEDS/2) * cos(x+PI*1.150) + (NUM_LEDS/2)};
+                short numDotsToLight = 16;
+                short whichDotsToLight[numDotsToLight] = 
+                    { (NUM_LEDS/2) * cos(x+PI*1.150) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.140) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.130) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.120) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.110) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.100) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.090) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.080) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.070) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.060) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.050) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.040) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.030) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.020) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.010) + (NUM_LEDS/2)
+                    , (NUM_LEDS/2) * cos(x+PI*1.000) + (NUM_LEDS/2)};
                 short indexInLit = -1;
                 CRGB dotColor;
                     
                 for(short dot = 0; dot < NUM_LEDS; dot++){
                     indexInLit = -1;
-                    for(short i = 0; i < 16; ++i){
-                        if(dot == whichIsLit[i]){
+                    
+                    for(short i = 0; i < numDotsToLight; ++i){
+                        if(dot == whichDotsToLight[i]){
                             indexInLit = i;
                         }
                     }
@@ -186,6 +233,11 @@ void loop()
                     if(indexInLit > -1){
                         dotColor = CRGB(currentRequestedColor);
                         leds[dot] = dotColor.fadeToBlackBy(indexInLit*16);
+                        
+                        // make the leading edge of the wave sparkle with random bright colors
+                        if(indexInLit == 0){
+                            leds[dot] = leds[dot].setHue(rand()%255);
+                        }
                     } else {
                         leds[dot] = CRGB::Black;
                     }
