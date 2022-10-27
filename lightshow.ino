@@ -84,12 +84,13 @@ void setup() {
 
 void loop()
 {
-    //what makes the button work
-    if(digitalRead(D0) == 1) {
-    	show("990000");
-    }
     switch(currentEffect){
         case IDLE:
+            //what makes the button work
+            if(digitalRead(D0) == 1) {
+            	show("990000");
+            }
+            
             digitalWrite(DEBUG_PIN, LOW);
             // setting this delay means that the button check will happen 20x/second,
             // which should feel pretty responsive.
