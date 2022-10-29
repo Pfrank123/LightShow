@@ -63,11 +63,18 @@ def main():
         bidLevels.sort(reverse=True)
         
         lastShownIndex = 1
+        with open('lastrow.txt', 'r') as lastrow:
+            file_contents = lastrow.read()
+            lastShownIndex = int(file_contents)
+            print(f"reset lastShownIndex {lastShownIndex}")
+            print(file_contents)
+        
         while keepgoing:
             time.sleep(1.05)
             result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
                                       range=SAMPLE_RANGE_NAME).execute()
             values = result.get('values', [])
+            #print(lastShownIndex)
             if not values:
                 print('No data found.')
                 return
@@ -77,6 +84,8 @@ def main():
                 activeRow = values[lastShownIndex]
                 tablenumber = activeRow[3]
                 pledgeAmount = int(activeRow[4])
+                with open('lastrow.txt', 'w') as lastrow:
+                    lastrow.write(str(lastShownIndex))
                 
                 print(pledgeAmount)
                 for level in bidLevels:
