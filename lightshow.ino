@@ -14,6 +14,10 @@ FASTLED_USING_NAMESPACE;
 #define FADE 1
 #define CLIMB 2
 #define BOUNCE 3
+#define PAIGE 4
+
+SYSTEM_MODE(SEMI_AUTOMATIC);
+SYSTEM_THREAD(ENABLED);
 
 CRGB leds[NUM_LEDS];
 
@@ -43,7 +47,7 @@ const char *swapGreenAndBlue(String colorCode){
 void setDurationFromCommand(String command){
     // note the arguments to substring are (from,to) not (from,length)
     // https://docs.particle.io/reference/device-os/api/string-class/substring/
-    float duration = command.substring(7,9).toFloat();
+    float duration = command.substring(7,10).toFloat();
     sprintf(debugStr, "SET DURATION with '%s', substring '%s' to %f", command.c_str(), command.substring(7,9).c_str(), duration);
     Particle.publish("set duration", debugStr);
     currentEffectDuration = duration * 1000;
@@ -94,7 +98,7 @@ int bounceWithDuration(String command) {
     currentRequestedColor = strtol(swapped, NULL, 16);
     
     setDurationFromCommand(command);
-    currentNumBounces = command.substring(10,12).toFloat();
+    currentNumBounces = command.substring(11,14).toFloat();
 
     sprintf(debugStr, 
             "BOUNCE start:%i color:%s swapped:%s duration:%f bounces:%f", 
@@ -115,12 +119,14 @@ void setup() {
     Particle.function("climbWithDuration", climbWithDuration);
     Particle.function("bounceWithDuration", bounceWithDuration);
     pinMode(DEBUG_PIN, OUTPUT);
+    Particle.connect();
 }
 
 void loop()
 {
     switch(currentEffect){
         case IDLE:
+        {
             //what makes the button work
             if(digitalRead(D0) == 1) {
             	show("990000");
@@ -131,6 +137,7 @@ void loop()
             // which should feel pretty responsive.
             delay(50);
             break;
+        }
         case FADE:
         {
             digitalWrite(DEBUG_PIN, HIGH);
