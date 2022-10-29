@@ -81,7 +81,15 @@ def main():
                 print(pledgeAmount)
                 for level in bidLevels:
                     if float(pledgeAmount) > level:
-                        os.system("particle call " + tableMapping[tablenumber] + " show 03fccf")
+                        tableNum = tableMapping[tablenumber]
+                        behavior = bidLevelsToBehaviors[level][0]
+                        color = bidLevelsToBehaviors[level][1]
+                        duration = bidLevelsToBehaviors[level][2]
+                        arguments = bidLevelsToBehaviors[level][3]
+                        command = f'''Particle call {tableNum} {behavior} "{color} {duration} {arguments}"'''
+                        print(command)
+                        os.system(command)
+                    
                 lastShownIndex += 1
     except HttpError as err:
         print(err)
