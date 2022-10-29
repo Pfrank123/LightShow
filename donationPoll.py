@@ -56,7 +56,7 @@ def main():
 
         lastShownIndex = 1
         while keepgoing:
-            time.sleep(0.5)
+            time.sleep(1.05)
             result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
                                       range=SAMPLE_RANGE_NAME).execute()
             values = result.get('values', [])
