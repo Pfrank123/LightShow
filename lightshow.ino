@@ -53,6 +53,36 @@ void setDurationFromCommand(String command){
     currentEffectDuration = duration * 1000;
 }
 
+// returns the Nth space-delimited float from a string
+float getFloatFromCommand(String command, short tokenPosition){
+    float result = 0.0;
+    short numSpacesSeen = 0;
+    short substringStartPos = -1;
+    short substringEndPos = -1;
+    for(short i = 0; substringStartPos < 0 && i < command.length(); ++i){
+        if(command[i] == ' '){
+            numSpacesSeen += 1;
+        }
+        if(numSpacesSeen == tokenPosition){
+            substringStartPos = i;
+        }
+    }
+    
+    if(substringStartPos >= 0){
+        substringEndPos = command.indexOf(' ',substringStartPos+1);
+    }
+    
+    if(substringEndPos == -1){
+        substringEndPos = command.length();
+    }
+    
+    if(substringStartPos >= 0 && substringEndPos >= 0){
+        result = command.substring(substringStartPos,substringEndPos).toFloat();
+    }
+    
+    return result;
+}
+
 int show(String command) {
     currentRequestStartTime = millis();
     currentEffectDuration = STANDARD_DURATION;
@@ -79,13 +109,14 @@ int climbWithDuration(String command) {
     const char *swapped = swapGreenAndBlue(command);
     currentRequestedColor = strtol(swapped, NULL, 16);
     
-    setDurationFromCommand(command);
+    float duration = getFloatFromCommand(command,1);
+    currentEffectDuration = duration * 1000.0;
     sprintf(debugStr, 
             "CLIMB-DURATION start:%i color:%s swapped:'%s' duration:%f", 
             currentRequestStartTime, 
             command.substring(0,6).c_str(), 
             swapped,
-            currentEffectDuration);
+            duration);
     Particle.publish("effect start", debugStr);
     return currentRequestedColor;
 }
@@ -97,15 +128,17 @@ int bounceWithDuration(String command) {
     const char *swapped = swapGreenAndBlue(command);
     currentRequestedColor = strtol(swapped, NULL, 16);
     
-    setDurationFromCommand(command);
-    currentNumBounces = command.substring(11,14).toFloat();
+    float duration = getFloatFromCommand(command,1);
+    currentEffectDuration = duration * 1000.0;
+    
+    currentNumBounces = getFloatFromCommand(command,2);
 
     sprintf(debugStr, 
             "BOUNCE start:%i color:%s swapped:%s duration:%f bounces:%f", 
             currentRequestStartTime, 
             command.substring(0,6).c_str(), 
             swapped,
-            currentEffectDuration,
+            duration,
             currentNumBounces);
     Particle.publish("effect start", debugStr);
     
