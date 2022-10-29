@@ -16,11 +16,15 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 SAMPLE_SPREADSHEET_ID = '1bn6EYSsHO_LtE1gwTvxgm5BxtR3q3FEEGzt-utsEydU'
 SAMPLE_RANGE_NAME = 'Form Responses 1!A1:E'
 TABLE_MAP_RANGE_NAME = 'TableMap!A2:B'
+BEHAVIOR_RANGE_NAME = 'Behaviors!A2:E'
+
 
 def main():
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
     """
+    
+    
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -52,8 +56,12 @@ def main():
         lastShownGreen = 0
         lastShownBlue = 0
 
+        
         tableMapping = readTableMapFromSheet(service,sheet)
-
+        bidLevelsToBehaviors = getAmountDataFromSheet(service,sheet)
+        bidLevels = (list(bidLevelsToBehaviors.keys()))
+        bidLevels.sort(reverse=True)
+        
         lastShownIndex = 1
         while keepgoing:
             time.sleep(1.05)
@@ -69,26 +77,15 @@ def main():
                 activeRow = values[lastShownIndex]
                 tablenumber = activeRow[3]
                 pledgeAmount = int(activeRow[4])
-
-                if pledgeAmount >= 100:
-                    #b = 1
-
-                    os.system("particle call " + tableMapping[tablenumber] + " show 03fccf")
-                    '''
-                    os.system("particle call " + tableMapping[tablenumber] + " show1 5f0ca8")
-                    time.sleep(0.4)
-                    os.system("particle call " + tableMapping[tablenumber] + " show 5f0ca8")
-                    #b+=1
-                        '''
-
-                if pledgeAmount < 100:
-                    os.system("particle call " + tableMapping[tablenumber] + " show 00FF00")
-
-
+                
+                print(pledgeAmount)
+                for level in bidLevels:
+                    if float(pledgeAmount) > level:
+                        os.system("particle call " + tableMapping[tablenumber] + " show 03fccf")
                 lastShownIndex += 1
     except HttpError as err:
         print(err)
-
+        
 def readTableMapFromSheet(service,sheet):
     query = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
                                   range=TABLE_MAP_RANGE_NAME).execute()
@@ -102,7 +99,23 @@ def readTableMapFromSheet(service,sheet):
         result[row[0]] = row[1]
 
     return result
-
+def getAmountDataFromSheet(service,sheet):
+    query = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                  range=BEHAVIOR_RANGE_NAME).execute()
+    rows = query.get('values', [])                
+    if not rows:
+        if not rows:
+            raise('No amount config found.')
+            
+    result = {}
+    
+    for row in rows:
+    #loads the list
+        result[int(row[0])] = row[1:]
+    return result
+    
+    
+    
 
 if __name__ == '__main__':
     main()
