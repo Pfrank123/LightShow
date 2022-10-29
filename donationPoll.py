@@ -15,7 +15,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 # The ID and range of a sample spreadsheet.
 SAMPLE_SPREADSHEET_ID = '1bn6EYSsHO_LtE1gwTvxgm5BxtR3q3FEEGzt-utsEydU'
 SAMPLE_RANGE_NAME = 'Form Responses 1!A1:E'
-
+TABLE_MAP_RANGE_NAME = 'TableMap!A2:B'
 
 def main():
     """Shows basic usage of the Sheets API.
@@ -42,7 +42,7 @@ def main():
     try:
         service = build('sheets', 'v4', credentials=creds)
 
-        # Call the Sheets 
+        # Call the Sheets
         sheet = service.spreadsheets()
         keepgoing=True
         desiredColor = ""
@@ -51,36 +51,28 @@ def main():
         lastShownRed = 0
         lastShownGreen = 0
         lastShownBlue = 0
-        
+
+        tableMapping = readTableMapFromSheet(service,sheet)
+
         lastShownIndex = 1
         while keepgoing:
-            time.sleep(1)
+            time.sleep(0.5)
             result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
                                       range=SAMPLE_RANGE_NAME).execute()
             values = result.get('values', [])
             if not values:
                 print('No data found.')
                 return
-            
-            
-            
+
             while lastShownIndex < len(values):
                 # get the next row
                 activeRow = values[lastShownIndex]
                 tablenumber = activeRow[3]
                 pledgeAmount = int(activeRow[4])
-                #///
-                
-            
-            
-                tableMapping = {
-                    "12" : 'me',
-                    "13" : 'up'
-                }
-                
+
                 if pledgeAmount >= 100:
                     #b = 1
-                    
+
                     os.system("particle call " + tableMapping[tablenumber] + " show 03fccf")
                     '''
                     os.system("particle call " + tableMapping[tablenumber] + " show1 5f0ca8")
@@ -88,21 +80,30 @@ def main():
                     os.system("particle call " + tableMapping[tablenumber] + " show 5f0ca8")
                     #b+=1
                         '''
-                
+
                 if pledgeAmount < 100:
                     os.system("particle call " + tableMapping[tablenumber] + " show 00FF00")
-                    
-                
-                lastShownIndex += 1
 
-            
-            
-            
-            
-            
+
+                lastShownIndex += 1
     except HttpError as err:
         print(err)
+
+def readTableMapFromSheet(service,sheet):
+    query = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                  range=TABLE_MAP_RANGE_NAME).execute()
+    rows = query.get('values', [])
+    if not rows:
+        raise('No config data found.')
+
+    result = {}
+
+    for row in rows:
+        result[row[0]] = row[1]
+
+    return result
 
 
 if __name__ == '__main__':
     main()
+
