@@ -88,8 +88,10 @@ def main():
                     lastrow.write(str(lastShownIndex))
                 
                 print(pledgeAmount)
+                foundAQualifyingLevel = False
                 for level in bidLevels:
-                    if float(pledgeAmount) > level:
+                    if (not foundAQualifyingLevel) and float(pledgeAmount) > level:
+                        foundAQualifyingLevel = True
                         tableNum = tableMapping[tablenumber]
                         behavior = bidLevelsToBehaviors[level][0]
                         color = bidLevelsToBehaviors[level][1]
@@ -98,6 +100,7 @@ def main():
                         command = f'''Particle call {tableNum} {behavior} "{color} {duration} {arguments}"'''
                         print(command)
                         os.system(command)
+                        
                     
                 lastShownIndex += 1
     except HttpError as err:
