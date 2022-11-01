@@ -97,7 +97,7 @@ def main():
                         color = bidLevelsToBehaviors[level][1]
                         duration = bidLevelsToBehaviors[level][2]
                         arguments = bidLevelsToBehaviors[level][3]
-                        command = f'''Particle call {tableNum} {behavior} "{color} {duration} {arguments}"'''
+                        command = f'''particle call {tableNum} {behavior} "{color} {duration} {arguments}"'''
                         print(command)
                         os.system(command)
                         
